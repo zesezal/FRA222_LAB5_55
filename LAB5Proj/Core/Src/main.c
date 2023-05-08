@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdio.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,16 +42,25 @@
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
-
+uint8_t RxBuffer[20];
+uint8_t TxBuffer[40];
+uint16_t LEDTime = 100;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
+void MenuState();
+void LEDLoop();
+void UARTInterruptConfig();
+void UARTDMAConfig();
 
 /* USER CODE END PFP */
 
@@ -87,15 +97,20 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+//  UARTInterruptConfig();
+  UARTDMAConfig();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+//	  MenuState();
+	  LEDLoop();
+//	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_0);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -165,7 +180,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 9600;
+  huart2.Init.BaudRate = 57600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -179,6 +194,25 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 
 }
 
@@ -220,7 +254,107 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+//void UARTPollingMethod()
+//{
+//	//read UART 10 char within 10s
+//	HAL_StatusTypeDef HAL_status = HAL_UART_Receive(&huart2, RxBuffer, 2, 10000);
+//
+//	//if completed reading 10 char
+//	if(HAL_status == HAL_OK){
+//		//(for string only) Add string stop symbol \0 to end string
+//		RxBuffer[10] = '\0';
+//
+//		//return received char
+//		sprintf((char*)TxBuffer,"Received : %s\r\n",RxBuffer);
+//		HAL_UART_Transmit(&huart2, TxBuffer, strlen((char*)TxBuffer), 10);
+//	}
+//	//Timeout : print only received char
+//	else if(HAL_status = HAL_TIMEOUT){
+//		//(for string only) Add string stop symbol \0 to end string
+//		uint32_t lastCharPos = huart2.RxXferSize - huart2.RxXferCount;
+//		RxBuffer[lastCharPos] = '\0';
+//
+//		//return received char
+//		sprintf((char*)TxBuffer,"Received Timeout: %s\r\n",RxBuffer);
+//		HAL_UART_Transmit(&huart2, TxBuffer, strlen((char*)TxBuffer), 10);
+//
+//
+//	}
+//}
 
+
+//void UARTInterruptConfig()
+//{
+//	//start UART in interrupt mode
+//	HAL_UART_Receive_IT(&huart2, RxBuffer, 5);
+//
+//}
+
+void UARTDMAConfig()
+{
+	//start UART in interrupt mode
+	HAL_UART_Receive_DMA(&huart2, RxBuffer, 1);
+
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart == &huart2)
+	{
+		//(for string only) Add string stop symbol \0 to end string
+		RxBuffer[1] = '\0';
+
+		//return received char
+		sprintf((char*)TxBuffer,"Received : %s\r\n",RxBuffer);
+		//DMA
+		HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+
+		//recall receive
+		HAL_UART_Receive_DMA(&huart2, RxBuffer, 1);
+
+	}
+}
+void LEDLoop()
+{
+	static uint32_t timestamp = 0;
+		if(HAL_GetTick() >= timestamp)
+		{
+			timestamp = HAL_GetTick() + LEDTime;
+			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		}
+}
+
+void MenuState()
+{
+	static enum
+		{
+			Menu,
+			LEDControl,
+			buttonStatus,
+		}State = Menu;
+
+			switch(State)
+			{
+			case Menu:
+
+			break;
+			case LEDControl:
+
+
+
+			break;
+
+			case buttonStatus:
+
+
+			break;
+
+
+
+
+			}
+
+}
 /* USER CODE END 4 */
 
 /**
