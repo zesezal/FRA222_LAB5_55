@@ -47,10 +47,11 @@ DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 uint8_t RxBuffer[1];
-uint8_t TxBuffer[200];
+uint8_t TxBuffer[300];
 uint16_t LEDHz = 1;
 int ledstatus = 1;
-int buttonstatusmode = 0;
+uint8_t status;
+uint8_t last_status;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -105,7 +106,7 @@ int main(void)
 
   UARTDMAConfig();
   MenuState();
-  sprintf((char*)TxBuffer,"  Choose your menu\r\n-----------------\r\n{0} LED Control\r\n{1} Button Status\r\n-------------------\r\n\r\n\r\n\r\n\r\n");
+  sprintf((char*)TxBuffer,"Choose your menu\r\n-----------------\r\n{0} LED Control\r\n{1} Button Status\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
   HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
   /* USER CODE END 2 */
 
@@ -114,8 +115,8 @@ int main(void)
   while (1)
   {
 //	  MenuState();
-
-		  LEDLoop();
+	  MenuState();
+	  LEDLoop();
 
 
 //	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_0);
@@ -277,7 +278,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
 		//(for string only) Add string stop symbol \0 to end string
 		RxBuffer[1] = '\0';
-		MenuState();
 	}
 }
 
@@ -307,16 +307,19 @@ void MenuState()
 				if(RxBuffer[0] == '0'){
 					sprintf((char*)TxBuffer,"\r\n[ LED Control ]\r\n---------------\r\n{a} + 1 LED Hz\r\n{s} - 1 LED Hz\r\n{d} Turn on/off\r\n{x} back \r\n---------------\r\n\r\n\r\n\r\n");
 					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+					RxBuffer[0] = '\000';
 					State = LEDControl;
 				}
 				else if(RxBuffer[0] == '1'){
-					buttonstatusmode =1;
+
 					sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is not pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
 					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+					RxBuffer[0] = '\000';
 					State = buttonStatus;
 				}
-				else {
-					  sprintf((char*)TxBuffer,"  Choose your menu\r\n-----------------\r\n{0} LED Control\r\n{1} Button Status\r\n-------------------\r\n!!!Wrong button!!!\r\n\r\n\r\n\r\n");
+				else if(RxBuffer[0] != '0' && RxBuffer[0] != '1' && RxBuffer[0] != 'x' && RxBuffer[0] != '\000' && RxBuffer[0] != '\0'){
+					RxBuffer[0] = '\000';
+					sprintf((char*)TxBuffer,"  Choose your menu\r\n-----------------\r\n{0} LED Control\r\n{1} Button Status\r\n-------------------\r\n!!!Wrong button!!!\r\n\r\n\r\n\r\n");
 					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
 				}
 			break;
@@ -324,6 +327,7 @@ void MenuState()
 			case LEDControl:
 				if(RxBuffer[0] == 'a'){
 					LEDHz += 1;
+					RxBuffer[0] = '\000';
 					sprintf((char*)TxBuffer,"\r\n[ LED Control ]\r\n---------------\r\n{a} + 1 LED Hz\r\n{s} - 1 LED Hz\r\n{d} Turn on/off\r\n{x} back \r\n---------------\r\nLED Hz set to %d\r\n\r\n\r\n", LEDHz);
 					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
 
@@ -332,18 +336,23 @@ void MenuState()
 					if (LEDHz > 1){
 					LEDHz -= 1;
 					}
+					RxBuffer[0] = '\000';
 					sprintf((char*)TxBuffer,"\r\n[ LED Control ]\r\n---------------\r\n{a} + 1 LED Hz\r\n{s} - 1 LED Hz\r\n{d} Turn on/off\r\n{x} back \r\n---------------\r\nLED Hz set to %d\r\n\r\n\r\n", LEDHz);
 					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
 
 				}
 				else if(RxBuffer[0] == 'd'){
 					if(ledstatus == 1){
+						RxBuffer[0] = '\000';
+
 						ledstatus = 0;
 						HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 						sprintf((char*)TxBuffer,"\r\n[ LED Control ]\r\n---------------\r\n{a} + 1 LED Hz\r\n{s} - 1 LED Hz\r\n{d} Turn on/off\r\n{x} back \r\n---------------\r\nLED turned off\r\n\r\n\r\n", LEDHz);
 						HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
 					}
 					else if(ledstatus == 0){
+						RxBuffer[0] = '\000';
+
 						ledstatus = 1;
 						sprintf((char*)TxBuffer,"\r\n[ LED Control ]\r\n---------------\r\n{a} + 1 LED Hz\r\n{s} - 1 LED Hz\r\n{d} Turn on/off\r\n{x} back \r\n---------------\r\nLED turned on\r\nLED Hz set to %d\r\n\r\n", LEDHz);
 						HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
@@ -352,61 +361,70 @@ void MenuState()
 				}
 
 				else if(RxBuffer[0] == 'x'){
+					RxBuffer[0] = '\000';
+
 					  sprintf((char*)TxBuffer,"Choose your menu\r\n-----------------\r\n{0} LED Control\r\n{1} Button Status\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
 				    HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
 					State = Menu;
 				}
-				else {
+				else if(RxBuffer[0] != 'a' && RxBuffer[0] != 's' && RxBuffer[0] != 'd' && RxBuffer[0] != 'x' && RxBuffer[0] != '\000' && RxBuffer[0] != '\0'){
 					sprintf((char*)TxBuffer,"\r\n[ LED Control ]\r\n---------------\r\n{a} + 1 LED Hz\r\n{s} - 1 LED Hz\r\n{d} Turn on/off\r\n{x} back \r\n---------------\r\n!!!Wrong button!!!\r\n\r\n\r\n", LEDHz);
 					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+					RxBuffer[0] = '\000';
+
 
 				}
 			break;
 
 			case buttonStatus:
+				status = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+				if(!status && status != last_status){
+					sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
+					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
 
-//				if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET ){
-//					sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
-//					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
-//
-//				}
-//				else if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET ){
-//					sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is not pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
-//					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
-//
-//				}
-				buttonstatusmode = 1;
-				if(RxBuffer[0] == 'x'){
-					buttonstatusmode = 0;
+				}
+				else if(status && status != last_status){
+					sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is not pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
+					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+
+				}
+
+				else if(RxBuffer[0] == 'x'){
+
 					  sprintf((char*)TxBuffer,"Choose your menu\r\n-----------------\r\n{0} LED Control\r\n{1} Button Status\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
 					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+					RxBuffer[0] = '\000';
+
 					State = Menu;
 				}
-				else {
-					  sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is not pressed\r\n{x} back\r\n-----------------\r\n!!!Wrong button!!!\r\n\r\n\r\n\r\n");
+				else if(RxBuffer[0] != 'x' && RxBuffer[0] != '\000' && RxBuffer[0] != '\0'){
+					sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is not pressed\r\n{x} back\r\n-----------------\r\n!!!Wrong button!!!\r\n\r\n\r\n\r\n");
 					HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+					RxBuffer[0] = '\000';
+
 				}
+				last_status = status;
 			break;
 
 			}
 
 }
-HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	if(GPIO_Pin == GPIO_PIN_13 && buttonstatusmode == 1)
-	{
-		if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET ){
-			sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
-			HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
-
-		}
-		else if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET ){
-			sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is not pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
-			HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
-
-		}
-	}
-}
+//HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+//{
+//	if(GPIO_Pin == GPIO_PIN_13 && buttonstatusmode == 1)
+//	{
+//		if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET ){
+//			sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
+//			HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+//
+//		}
+//		else if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET ){
+//			sprintf((char*)TxBuffer,"[Button Status]\r\n-----------------\r\nButton 1 is not pressed\r\n{x} back\r\n-----------------\r\n\r\n\r\n\r\n\r\n");
+//			HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+//
+//		}
+//	}
+//}
 /* USER CODE END 4 */
 
 /**
